@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'dart:convert';
 
 void main() {
   runApp(const ChulCutApp());
@@ -1037,11 +1040,23 @@ class HomeScreen extends StatelessWidget {
                 children: [
                   _BottomNavItem(Icons.home_rounded, 'Home', true),
                   _BottomNavItem(Icons.search_rounded, 'Search', false),
-                  _BottomNavItem(
-                    Icons.calendar_month_rounded,
-                    'Bookings',
-                    false,
+
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const MyBookingsScreen(),
+                        ),
+                      );
+                    },
+                    child: _BottomNavItem(
+                      Icons.calendar_month_rounded,
+                      'Bookings',
+                      false,
+                    ),
                   ),
+
                   _BottomNavItem(
                     Icons.card_giftcard_rounded,
                     'Referral',
@@ -2287,8 +2302,10 @@ class _ChooseServicesScreenState extends State<ChooseServicesScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) =>
-                                    const ChooseProfessionalScreen(),
+                                builder: (context) => ChooseProfessionalScreen(
+                                  selectedServices: selectedServices.toList(),
+                                  totalAmount: totalAmount,
+                                ),
                               ),
                             );
                           },
@@ -2311,7 +2328,14 @@ class _ChooseServicesScreenState extends State<ChooseServicesScreen> {
 }
 
 class ChooseProfessionalScreen extends StatefulWidget {
-  const ChooseProfessionalScreen({super.key});
+  final List<String> selectedServices;
+  final int totalAmount;
+
+  const ChooseProfessionalScreen({
+    super.key,
+    required this.selectedServices,
+    required this.totalAmount,
+  });
 
   @override
   State<ChooseProfessionalScreen> createState() =>
@@ -2541,7 +2565,11 @@ class _ChooseProfessionalScreenState extends State<ChooseProfessionalScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const SelectDateTimeScreen(),
+                      builder: (context) => SelectDateTimeScreen(
+                        selectedServices: widget.selectedServices,
+                        totalAmount: widget.totalAmount,
+                        selectedProfessional: selectedProfessional,
+                      ),
                     ),
                   );
                 },
@@ -2559,7 +2587,16 @@ class _ChooseProfessionalScreenState extends State<ChooseProfessionalScreen> {
 }
 
 class SelectDateTimeScreen extends StatefulWidget {
-  const SelectDateTimeScreen({super.key});
+  final List<String> selectedServices;
+  final int totalAmount;
+  final String selectedProfessional;
+
+  const SelectDateTimeScreen({
+    super.key,
+    required this.selectedServices,
+    required this.totalAmount,
+    required this.selectedProfessional,
+  });
 
   @override
   State<SelectDateTimeScreen> createState() => _SelectDateTimeScreenState();
@@ -2568,6 +2605,11 @@ class SelectDateTimeScreen extends StatefulWidget {
 class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
   int selectedDateIndex = 0;
   String selectedTime = '';
+  List<String> get selectedServiceNames => widget.selectedServices;
+
+  int get bookingTotalAmount => widget.totalAmount;
+
+  String get bookingProfessional => widget.selectedProfessional;
 
   final List<Map<String, String>> dates = [
     {'day': 'Today', 'date': '7', 'month': 'Oct'},
@@ -2782,13 +2824,607 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
               width: double.infinity,
               height: 52,
               child: ElevatedButton(
-                onPressed: selectedTime.isEmpty ? null : () {},
+                onPressed: selectedTime.isEmpty
+                    ? null
+                    : () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => BookingSummaryScreen(
+                              services: selectedServiceNames,
+                              professional: bookingProfessional,
+                              date: dates[selectedDateIndex]['day']!,
+                              time: selectedTime,
+                              totalAmount: bookingTotalAmount,
+                            ),
+                          ),
+                        );
+                      },
                 child: const Text(
                   'Continue',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class BookingSummaryScreen extends StatelessWidget {
+  final List<String> services;
+  final String professional;
+  final String date;
+  final String time;
+  final int totalAmount;
+
+  const BookingSummaryScreen({
+    super.key,
+    required this.services,
+    required this.professional,
+    required this.date,
+    required this.time,
+    required this.totalAmount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const pink = Color(0xFFE91E63);
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFFFF8FB),
+      appBar: AppBar(
+        title: const Text('Booking Summary'),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Selected Services',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                ...services.map(
+                  (service) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.check_circle, color: pink, size: 19),
+                        const SizedBox(width: 10),
+                        Expanded(child: Text(service)),
+                      ],
+                    ),
+                  ),
+                ),
+                const Divider(height: 28),
+                const Text(
+                  'Professional',
+                  style: TextStyle(color: Colors.grey),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  professional,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const Text('Appointment', style: TextStyle(color: Colors.grey)),
+                const SizedBox(height: 5),
+                Text(
+                  '$date • $time',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Divider(height: 28),
+                const Text(
+                  'Total Amount',
+                  style: TextStyle(color: Colors.grey),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  '₹$totalAmount',
+                  style: const TextStyle(
+                    fontSize: 25,
+                    fontWeight: FontWeight.bold,
+                    color: pink,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 22),
+          SizedBox(
+            width: double.infinity,
+            height: 54,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: pink,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              onPressed: () async {
+                final bookingId = 'CC${DateTime.now().millisecondsSinceEpoch}';
+                final prefs = await SharedPreferences.getInstance();
+
+                final savedBookings =
+                    prefs.getStringList('chulcut_bookings') ?? [];
+
+                final booking = {
+                  'bookingId': bookingId,
+                  'services': services,
+                  'professional': professional,
+                  'date': date,
+                  'time': time,
+                  'totalAmount': totalAmount,
+                  'status': 'Confirmed',
+                };
+
+                savedBookings.add(jsonEncode(booking));
+
+                await prefs.setStringList('chulcut_bookings', savedBookings);
+                if (!context.mounted) return;
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => BookingConfirmationScreen(
+                      bookingId: bookingId,
+                      services: services,
+                      professional: professional,
+                      date: date,
+                      time: time,
+                      totalAmount: totalAmount,
+                    ),
+                  ),
+                );
+              },
+              child: const Text(
+                'Confirm Booking',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class BookingConfirmationScreen extends StatelessWidget {
+  final String bookingId;
+  final List<String> services;
+  final String professional;
+  final String date;
+  final String time;
+  final int totalAmount;
+
+  const BookingConfirmationScreen({
+    super.key,
+    required this.bookingId,
+    required this.services,
+    required this.professional,
+    required this.date,
+    required this.time,
+    required this.totalAmount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const pink = Color(0xFFE91E63);
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFFFF8FB),
+      appBar: AppBar(
+        title: const Text('Booking Confirmation'),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          const SizedBox(height: 20),
+          const Icon(Icons.check_circle, color: Colors.green, size: 90),
+          const SizedBox(height: 16),
+          const Text(
+            'Booking Confirmed!',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Your booking details are ready.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey),
+          ),
+          const SizedBox(height: 25),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Booking ID', style: TextStyle(color: Colors.grey)),
+                const SizedBox(height: 5),
+                SelectableText(
+                  bookingId,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: pink,
+                  ),
+                ),
+                const Divider(height: 30),
+                const Text('Status', style: TextStyle(color: Colors.grey)),
+                const SizedBox(height: 5),
+                const Text(
+                  'Confirmed',
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 17,
+                  ),
+                ),
+                const Divider(height: 30),
+                const Text(
+                  'Selected Services',
+                  style: TextStyle(color: Colors.grey),
+                ),
+                const SizedBox(height: 8),
+                ...services.map(
+                  (service) => Padding(
+                    padding: const EdgeInsets.only(bottom: 7),
+                    child: Text('• $service'),
+                  ),
+                ),
+                const Divider(height: 25),
+                const Text(
+                  'Professional',
+                  style: TextStyle(color: Colors.grey),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  professional,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const Text('Appointment', style: TextStyle(color: Colors.grey)),
+                const SizedBox(height: 5),
+                Text(
+                  '$date • $time',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+                ),
+                const Divider(height: 25),
+                const Text(
+                  'Total Amount',
+                  style: TextStyle(color: Colors.grey),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  '₹$totalAmount',
+                  style: const TextStyle(
+                    fontSize: 25,
+                    fontWeight: FontWeight.bold,
+                    color: pink,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 25),
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: pink,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              onPressed: () {
+                Navigator.popUntil(context, (route) => route.isFirst);
+              },
+              child: const Text(
+                'Back to Home',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class MyBookingsScreen extends StatefulWidget {
+  const MyBookingsScreen({super.key});
+
+  @override
+  State<MyBookingsScreen> createState() => _MyBookingsScreenState();
+}
+
+class _MyBookingsScreenState extends State<MyBookingsScreen> {
+  List<Map<String, dynamic>> bookings = [];
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    loadBookings();
+  }
+
+  Future<void> loadBookings() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedBookings = prefs.getStringList('chulcut_bookings') ?? [];
+
+    final loadedBookings = <Map<String, dynamic>>[];
+
+    for (final item in savedBookings) {
+      try {
+        final decoded = jsonDecode(item);
+        if (decoded is Map<String, dynamic>) {
+          loadedBookings.add(decoded);
+        }
+      } catch (_) {
+        // Ignore an invalid saved booking entry.
+      }
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      bookings = loadedBookings.reversed.toList();
+      isLoading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const pink = Color(0xFFE91E63);
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFFFF8FB),
+      appBar: AppBar(
+        title: const Text('My Bookings'),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+      ),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : bookings.isEmpty
+          ? const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.calendar_month_outlined, size: 70, color: pink),
+                    SizedBox(height: 16),
+                    Text(
+                      'No bookings yet',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Your confirmed bookings will appear here.',
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: bookings.length,
+              itemBuilder: (context, index) {
+                final booking = bookings[index];
+                final services = (booking['services'] as List<dynamic>? ?? [])
+                    .join(', ');
+
+                return InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            BookingDetailsScreen(booking: booking),
+                      ),
+                    );
+                  },
+                  child: Card(
+                    color: Colors.white,
+                    margin: const EdgeInsets.only(bottom: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Booking ID: ${booking['bookingId'] ?? '-'}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: pink,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text('Services: $services'),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Professional: ${booking['professional'] ?? '-'}',
+                          ),
+                          const SizedBox(height: 8),
+                          Text('Date: ${booking['date'] ?? '-'}'),
+                          const SizedBox(height: 8),
+                          Text('Time: ${booking['time'] ?? '-'}'),
+                          const Divider(height: 24),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '₹${booking['totalAmount'] ?? 0}',
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: pink,
+                                ),
+                              ),
+                              Text(
+                                '${booking['status'] ?? 'Confirmed'}',
+                                style: const TextStyle(
+                                  color: Colors.green,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+    ); // Scaffold
+  }
+}
+
+class BookingDetailsScreen extends StatelessWidget {
+  final Map<String, dynamic> booking;
+
+  const BookingDetailsScreen({super.key, required this.booking});
+
+  @override
+  Widget build(BuildContext context) {
+    const pink = Color(0xFFE91E63);
+
+    final services = (booking['services'] as List<dynamic>? ?? []).join(', ');
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFFFF8FB),
+      appBar: AppBar(
+        title: const Text('Booking Details'),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          const Icon(Icons.check_circle, color: Colors.green, size: 64),
+          const SizedBox(height: 12),
+          const Text(
+            'Booking Details',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 23, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 24),
+          Card(
+            color: Colors.white,
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'BOOKING ID',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                  const SizedBox(height: 6),
+                  SelectableText(
+                    '${booking['bookingId'] ?? '-'}',
+                    style: const TextStyle(
+                      color: pink,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 17,
+                    ),
+                  ),
+                  const Divider(height: 28),
+                  _detailRow('Services', services),
+                  _detailRow(
+                    'Professional',
+                    '${booking['professional'] ?? '-'}',
+                  ),
+                  _detailRow('Date', '${booking['date'] ?? '-'}'),
+                  _detailRow('Time', '${booking['time'] ?? '-'}'),
+                  _detailRow('Status', '${booking['status'] ?? 'Confirmed'}'),
+                  const Divider(height: 28),
+                  const Text(
+                    'Total Amount',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '₹${booking['totalAmount'] ?? 0}',
+                    style: const TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      color: pink,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.arrow_back),
+            label: const Text('Back to My Bookings'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(color: Colors.grey)),
+          const SizedBox(height: 4),
+          Text(
+            value.isEmpty ? '-' : value,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
           ),
         ],
       ),
